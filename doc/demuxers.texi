@@ -735,8 +735,10 @@ but with key @code{XMP_}. Default is false.
 Fixed key used for handling Audible AAX/AAX+ files. It has been pre-set so should not be necessary to
 specify.
 
-@item decryption_key
-16-byte key, in hex, to decrypt files encrypted using ISO Common Encryption (CENC/AES-128 CTR; ISO/IEC 23001-7).
+@item decryption_key_v
+16-byte key, in hex, to decrypt video files encrypted using ISO Common Encryption (CENC/AES-128 CTR; ISO/IEC 23001-7).
+@item decryption_key_a
+16-byte key, in hex, to decrypt audio files encrypted using ISO Common Encryption (CENC/AES-128 CTR; ISO/IEC 23001-7).
 
 @item max_stts_delta
 Very high sample deltas written in a trak's stts box may occasionally be intended but usually they are written in

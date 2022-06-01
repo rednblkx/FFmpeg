@@ -309,8 +309,10 @@ typedef struct MOVContext {
     void *audible_iv;
     int audible_iv_size;
     struct AVAES *aes_decrypt;
-    uint8_t *decryption_key;
-    int decryption_key_len;
+    uint8_t *decryption_key_v;
+    int decryption_key_v_len;
+    uint8_t *decryption_key_a;
+    int decryption_key_a_len;
     int enable_drefs;
     int32_t movie_display_matrix[3][3]; ///< display matrix from mvhd
     int have_read_mfra_size;

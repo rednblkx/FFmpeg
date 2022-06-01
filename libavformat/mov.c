@@ -6790,7 +6790,7 @@ static int mov_read_dfla(MOVContext *c, AVIOContext *pb, MOVAtom atom)
     return 0;
 }
 
-static int cenc_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size)
+static int cenc_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size, const char *mediatype)
 {
     int i, ret;
     int bytes_of_protected_data;
@@ -6798,14 +6798,17 @@ static int cenc_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
     uint8_t *partially_encrypted_block;
     uint8_t block[16];
 
+    // av_log(c->fc, AV_LOG_WARNING, "%s\n", mediatype);
+
     if (!sc->cenc.aes_ctr) {
         /* initialize the cipher */
         sc->cenc.aes_ctr = av_aes_ctr_alloc();
         if (!sc->cenc.aes_ctr) {
             return AVERROR(ENOMEM);
         }
-
-        ret = av_aes_ctr_init(sc->cenc.aes_ctr, c->decryption_key);
+        if (strcmp(mediatype, "audio") == 0 && c->decryption_key_a) {
+           ret = av_aes_ctr_init(sc->cenc.aes_ctr, c->decryption_key_a);
+        }else ret = av_aes_ctr_init(sc->cenc.aes_ctr, c->decryption_key_v);
         if (ret < 0) {
             return ret;
         }
@@ -6868,11 +6871,13 @@ static int cenc_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
     return 0;
 }
 
-static int cbc1_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size)
+static int cbc1_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size, const char *mediatype)
 {
     int i, ret;
     int num_of_encrypted_blocks;
     uint8_t iv[16];
+
+    // av_log(c->fc, AV_LOG_WARNING, "%s\n", mediatype);
 
     if (!sc->cenc.aes_ctx) {
         /* initialize the cipher */
@@ -6880,8 +6885,9 @@ static int cbc1_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
         if (!sc->cenc.aes_ctx) {
             return AVERROR(ENOMEM);
         }
-
-        ret = av_aes_init(sc->cenc.aes_ctx, c->decryption_key, 16 * 8, 1);
+        if (strcmp(mediatype, "audio") == 0 && c->decryption_key_a) {
+           ret = av_aes_init(sc->cenc.aes_ctx, c->decryption_key_a, 16 * 8, 1);
+        }else ret = av_aes_init(sc->cenc.aes_ctx, c->decryption_key_v, 16 * 8, 1);
         if (ret < 0) {
             return ret;
         }
@@ -6928,10 +6934,12 @@ static int cbc1_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
     return 0;
 }
 
-static int cens_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size)
+static int cens_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size, const char *mediatype)
 {
     int i, ret, rem_bytes;
     uint8_t *data;
+
+    // av_log(c->fc, AV_LOG_WARNING, "%s\n", mediatype);
 
     if (!sc->cenc.aes_ctr) {
         /* initialize the cipher */
@@ -6940,7 +6948,9 @@ static int cens_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
             return AVERROR(ENOMEM);
         }
 
-        ret = av_aes_ctr_init(sc->cenc.aes_ctr, c->decryption_key);
+        if (strcmp(mediatype, "audio") == 0 && c->decryption_key_a) {
+           ret = av_aes_ctr_init(sc->cenc.aes_ctr, c->decryption_key_a);
+        }else ret = av_aes_ctr_init(sc->cenc.aes_ctr, c->decryption_key_v);
         if (ret < 0) {
             return ret;
         }
@@ -6993,11 +7003,13 @@ static int cens_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
     return 0;
 }
 
-static int cbcs_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size)
+static int cbcs_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size, const char *mediatype)
 {
     int i, ret, rem_bytes;
     uint8_t iv[16];
     uint8_t *data;
+
+    // av_log(c->fc, AV_LOG_WARNING, "%s\n", mediatype);
 
     if (!sc->cenc.aes_ctx) {
         /* initialize the cipher */
@@ -7006,7 +7018,9 @@ static int cbcs_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
             return AVERROR(ENOMEM);
         }
 
-        ret = av_aes_init(sc->cenc.aes_ctx, c->decryption_key, 16 * 8, 1);
+        if (strcmp(mediatype, "audio") == 0 && c->decryption_key_a) {
+           ret = av_aes_init(sc->cenc.aes_ctx, c->decryption_key_a, 16 * 8, 1);
+        }else ret = av_aes_init(sc->cenc.aes_ctx, c->decryption_key_v, 16 * 8, 1);
         if (ret < 0) {
             return ret;
         }
@@ -7059,16 +7073,16 @@ static int cbcs_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
     return 0;
 }
 
-static int cenc_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size)
+static int cenc_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryptionInfo *sample, uint8_t *input, int size, const char *mediatype)
 {
     if (sample->scheme == MKBETAG('c','e','n','c') && !sample->crypt_byte_block && !sample->skip_byte_block) {
-        return cenc_scheme_decrypt(c, sc, sample, input, size);
+        return cenc_scheme_decrypt(c, sc, sample, input, size, mediatype);
     } else if (sample->scheme == MKBETAG('c','b','c','1') && !sample->crypt_byte_block && !sample->skip_byte_block) {
-        return cbc1_scheme_decrypt(c, sc, sample, input, size);
+        return cbc1_scheme_decrypt(c, sc, sample, input, size, mediatype);
     } else if (sample->scheme == MKBETAG('c','e','n','s')) {
-        return cens_scheme_decrypt(c, sc, sample, input, size);
+        return cens_scheme_decrypt(c, sc, sample, input, size, mediatype);
     } else if (sample->scheme == MKBETAG('c','b','c','s')) {
-        return cbcs_scheme_decrypt(c, sc, sample, input, size);
+        return cbcs_scheme_decrypt(c, sc, sample, input, size, mediatype);
     } else {
         av_log(c->fc, AV_LOG_ERROR, "invalid encryption scheme\n");
         return AVERROR_INVALIDDATA;
@@ -7081,6 +7095,10 @@ static int cenc_filter(MOVContext *mov, AVStream* st, MOVStreamContext *sc, AVPa
     MOVEncryptionIndex *encryption_index;
     AVEncryptionInfo *encrypted_sample;
     int encrypted_index, ret;
+
+    const char *mediatype;
+    
+    mediatype = av_get_media_type_string(st->codecpar->codec_type);
 
     frag_stream_info = get_frag_stream_info(&mov->frag_index, mov->frag_index.current, st->id);
     encrypted_index = current_index;
@@ -7123,9 +7141,10 @@ static int cenc_filter(MOVContext *mov, AVStream* st, MOVStreamContext *sc, AVPa
             av_log(mov->fc, AV_LOG_ERROR, "Incorrect number of samples in encryption info\n");
             return AVERROR_INVALIDDATA;
         }
-
-        if (mov->decryption_key) {
-            return cenc_decrypt(mov, sc, encrypted_sample, pkt->data, pkt->size);
+        if (strcmp(mediatype, "video") == 0 && mov->decryption_key_v) {
+            return cenc_decrypt(mov, sc, encrypted_sample, pkt->data, pkt->size, mediatype);
+        }if (strcmp(mediatype, "audio") == 0 && mov->decryption_key_a) {
+            return cenc_decrypt(mov, sc, encrypted_sample, pkt->data, pkt->size, mediatype);
         } else {
             size_t size;
             uint8_t *side_data = av_encryption_info_add_side_data(encrypted_sample, &size);
@@ -8312,9 +8331,9 @@ static int mov_read_header(AVFormatContext *s)
     MOVAtom atom = { AV_RL32("root") };
     int i;
 
-    if (mov->decryption_key_len != 0 && mov->decryption_key_len != AES_CTR_KEY_SIZE) {
+    if (mov->decryption_key_v_len != 0 && mov->decryption_key_v_len != AES_CTR_KEY_SIZE) {
         av_log(s, AV_LOG_ERROR, "Invalid decryption key len %d expected %d\n",
-            mov->decryption_key_len, AES_CTR_KEY_SIZE);
+            mov->decryption_key_v_len, AES_CTR_KEY_SIZE);
         return AVERROR(EINVAL);
     }
 
@@ -9017,7 +9036,8 @@ static const AVOption mov_options[] = {
         "Fixed key used for handling Audible AAX files", OFFSET(audible_fixed_key),
         AV_OPT_TYPE_BINARY, {.str="77214d4b196a87cd520045fd20a51d67"},
         .flags = AV_OPT_FLAG_DECODING_PARAM },
-    { "decryption_key", "The media decryption key (hex)", OFFSET(decryption_key), AV_OPT_TYPE_BINARY, .flags = AV_OPT_FLAG_DECODING_PARAM },
+    { "decryption_key_v", "The media decryption key (hex) for video", OFFSET(decryption_key_v), AV_OPT_TYPE_BINARY, .flags = AV_OPT_FLAG_DECODING_PARAM },
+    { "decryption_key_a", "The media decryption key (hex) for audio", OFFSET(decryption_key_a), AV_OPT_TYPE_BINARY, .flags = AV_OPT_FLAG_DECODING_PARAM },
     { "enable_drefs", "Enable external track support.", OFFSET(enable_drefs), AV_OPT_TYPE_BOOL,
         {.i64 = 0}, 0, 1, FLAGS },
     { "max_stts_delta", "treat offsets above this value as invalid", OFFSET(max_stts_delta), AV_OPT_TYPE_INT, {.i64 = UINT_MAX-48000*10 }, 0, UINT_MAX, .flags = AV_OPT_FLAG_DECODING_PARAM },

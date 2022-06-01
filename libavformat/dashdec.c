@@ -150,7 +150,8 @@ typedef struct DASHContext {
     char *allowed_extensions;
     AVDictionary *avio_opts;
     int max_url_size;
-    char *cenc_decryption_key;
+    char *cenc_decryption_key_v;
+    char *cenc_decryption_key_a;
 
     /* Flags for init section*/
     int is_init_section_common_video;
@@ -1893,9 +1894,10 @@ static int reopen_demux_for_component(AVFormatContext *s, struct representation 
 
     pls->ctx->pb = &pls->pb.pub;
     pls->ctx->io_open  = nested_io_open;
-
-    if (c->cenc_decryption_key)
-        av_dict_set(&in_fmt_opts, "decryption_key", c->cenc_decryption_key, 0);
+    if (c->cenc_decryption_key_v)
+        av_dict_set(&in_fmt_opts, "decryption_key_v", c->cenc_decryption_key_v, 0);
+    if (c->cenc_decryption_key_a)
+        av_dict_set(&in_fmt_opts, "decryption_key_a", c->cenc_decryption_key_a, 0);
 
     // provide additional information from mpd if available
     ret = avformat_open_input(&pls->ctx, "", in_fmt, &in_fmt_opts); //pls->init_section->url
@@ -2348,7 +2350,8 @@ static const AVOption dash_options[] = {
         OFFSET(allowed_extensions), AV_OPT_TYPE_STRING,
         {.str = "aac,m4a,m4s,m4v,mov,mp4,webm,ts"},
         INT_MIN, INT_MAX, FLAGS},
-    { "cenc_decryption_key", "Media decryption key (hex)", OFFSET(cenc_decryption_key), AV_OPT_TYPE_STRING, {.str = NULL}, INT_MIN, INT_MAX, .flags = FLAGS },
+    { "cenc_decryption_key_v", "Media decryption key (hex) for video", OFFSET(cenc_decryption_key_v), AV_OPT_TYPE_STRING, {.str = NULL}, INT_MIN, INT_MAX, .flags = FLAGS },
+    { "cenc_decryption_key_a", "Media decryption key (hex) for audio", OFFSET(cenc_decryption_key_a), AV_OPT_TYPE_STRING, {.str = NULL}, INT_MIN, INT_MAX, .flags = FLAGS },
     {NULL}
 };
 
